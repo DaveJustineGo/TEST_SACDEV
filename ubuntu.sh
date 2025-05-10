@@ -15,23 +15,6 @@ fi
 source "$VENV_DIR/bin/activate"
 pip install --upgrade pip
 
-# Create requirements.txt
-cat <<EOF > requirements.txt
-blinker==1.9.0
-click==8.1.8
-colorama==0.4.6
-Flask==3.1.0
-Flask-Login==0.6.3
-Flask-SQLAlchemy==3.1.1
-greenlet==3.2.0
-itsdangerous==2.2.0
-Jinja2==3.1.6
-MarkupSafe==3.0.2
-SQLAlchemy==2.0.40
-typing_extensions==4.13.2
-Werkzeug==3.1.3
-EOF
-
 pip install -r requirements.txt
 
 
@@ -54,9 +37,10 @@ else
     echo "UFW is already active."
 fi
 
-# Allow the specified port
+# Allow the specified port and http port
 echo "Allowing port $PORT through firewall..."
 sudo ufw allow $PORT
+sudo ufw allow 80
 
 
 echo "✅ All packages installed in virtual environment."
