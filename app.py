@@ -1,5 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, g
 from flask_login import logout_user
+import logging
+import os
+from logging.handlers import RotatingFileHandler
 import sqlite3
 import traceback
 
@@ -7,6 +10,21 @@ app = Flask(__name__)
 app.secret_key = 'secret123'  # Required for session and flash
 
 DATABASE = 'database/users.db'
+
+# Ensure logs directory exists
+os.makedirs('logs', exist_ok=True)
+
+# Configure file handler
+file_handler = RotatingFileHandler('logs/flask_app.log', maxBytes=10240, backupCount=5)
+file_handler.setLevel(logging.INFO)
+
+# Log format
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+
+# Add handler to Flask's logger
+if not app.logger.handlers:
+    app.logger.addHandler(file_handler)
 
 # --- DATABASE CONNECTION ---
 def get_db_connection():
@@ -130,7 +148,13 @@ def view_organization(org_id):
 
         elif 'kick_member' in request.form:
             member_id = request.form['member_id']
-            db.execute('DELETE FROM members WHERE id = ?', (member_id,))
+            db.execute('''
+                UPDATE members
+                SET org_id = (SELECT id FROM organizations WHERE name = 'ORGless'),
+                    position = 'member'
+                WHERE id = ?
+                       
+            ''', ( member_id,))
             db.commit()
 
         return redirect(url_for('view_organization', org_id=org_id))
