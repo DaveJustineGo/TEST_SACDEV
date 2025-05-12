@@ -85,6 +85,24 @@ c.execute('''
 # Get the ID of the inserted organization
 org_id = c.lastrowid
 
+# Create students table
+c.execute('''
+    CREATE TABLE IF NOT EXISTS students (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
+    )
+''')
+
+# Insert all students (some will be members, others will remain orgless)
+all_students = [
+    'John Doe', 'Jane Smith', 'Mark Johnson', 'Emily Davis', 'Chris Lee',
+    'Lara Croft', 'Tony Stark', 'Bruce Wayne', 'Clark Kent', 'Diana Prince'
+]
+
+for name in all_students:
+    c.execute('INSERT OR IGNORE INTO students (name) VALUES (?)', (name,))
+
+
 # Insert 5 dummy students (members)
 students = [
     ('John Doe', 'President', 'johndoe@example.com', '09171234567', 'Male', 3.5, 'Computer Science', '4th', 'College of Engineering'),

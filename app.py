@@ -1,8 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, g
 from flask_login import logout_user
-import logging
-import os
-from logging.handlers import RotatingFileHandler
 import sqlite3
 import traceback
 
@@ -10,21 +7,6 @@ app = Flask(__name__)
 app.secret_key = 'secret123'  # Required for session and flash
 
 DATABASE = 'database/users.db'
-
-# Ensure logs directory exists
-os.makedirs('logs', exist_ok=True)
-
-# Configure file handler
-file_handler = RotatingFileHandler('logs/flask_app.log', maxBytes=10240, backupCount=5)
-file_handler.setLevel(logging.INFO)
-
-# Log format
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
-
-# Add handler to Flask's logger
-if not app.logger.handlers:
-    app.logger.addHandler(file_handler)
 
 # --- DATABASE CONNECTION ---
 def get_db_connection():
@@ -81,6 +63,7 @@ def sacdev_dashboard():
         return redirect('/login')
 
     conn = sqlite3.connect('database/users.db')
+    conn.row_factory = sqlite3.Row
     c = conn.cursor()
 
     # Add organization
@@ -99,11 +82,59 @@ def sacdev_dashboard():
             c.execute('DELETE FROM organizations WHERE id = ?', (org_id,))
             conn.commit()
 
-    c.execute('SELECT * FROM organizations')
+    # --- Ensure default org exists ---
+    c.execute("SELECT * FROM organizations WHERE name = 'No Organization'")
+    default_org = c.fetchone()
+
+    if not default_org:
+        c.execute('''
+            INSERT INTO organizations (name, description, mission, vision, status)
+            VALUES (?, ?, ?, ?, ?)
+        ''', ('No Organization', 'Auto-assigned orgless students', '', '', 'Active'))
+        conn.commit()
+        c.execute("SELECT * FROM organizations WHERE name = 'No Organization'")
+        default_org = c.fetchone()
+
+    default_org_id = default_org['id']
+
+    # --- Find orgless students in 'members' table ---
+    c.execute('SELECT id, name FROM students')  # Assuming you have a students table
+    all_students = c.fetchall()
+
+    c.execute('SELECT full_name FROM members')
+    members = c.fetchall()
+    member_names = {m['full_name'] for m in members}
+
+    # --- Insert orgless students into default org ---
+    for student in all_students:
+        if student['name'] not in member_names:
+            c.execute('''
+                INSERT INTO members (org_id, full_name)
+                VALUES (?, ?)
+            ''', (default_org_id, student['name']))
+    conn.commit()
+
+    # --- Fetch orgs with member counts ---
+    c.execute('''
+        SELECT o.*, COUNT(m.id) AS member_count
+        FROM organizations o
+        LEFT JOIN members m ON o.id = m.org_id
+        GROUP BY o.id
+    ''')
     orgs = c.fetchall()
+
+    # --- Orgless students (optional: those in default org) ---
+    c.execute('''
+        SELECT name FROM students
+        WHERE name NOT IN (
+            SELECT full_name FROM members WHERE org_id != ?
+        )
+    ''', (default_org_id,))
+    orgless_students = c.fetchall()
+
     conn.close()
 
-    return render_template('sacdev_dashboard.html', user=session['username'], orgs=orgs)
+    return render_template('sacdev_dashboard.html', user=session['username'], orgs=orgs, orgless_students=orgless_students)
 
 
 @app.route('/rrc_dashboard')
@@ -148,13 +179,7 @@ def view_organization(org_id):
 
         elif 'kick_member' in request.form:
             member_id = request.form['member_id']
-            db.execute('''
-                UPDATE members
-                SET org_id = (SELECT id FROM organizations WHERE name = 'ORGless'),
-                    position = 'member'
-                WHERE id = ?
-                       
-            ''', ( member_id,))
+            db.execute('DELETE FROM members WHERE id = ?', (member_id,))
             db.commit()
 
         return redirect(url_for('view_organization', org_id=org_id))
@@ -209,8 +234,6 @@ def students_orgs():
         return f"<pre>{traceback.format_exc()}</pre>"
 
 
-
-
-
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0', port=5000)
+    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000)
