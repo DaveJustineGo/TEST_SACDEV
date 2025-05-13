@@ -36,12 +36,48 @@ c.execute('''
         course TEXT,
         year_level TEXT,
         college TEXT,
-        FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE
+        FOREIGN KEY (org_id) REFERENCES organizations(id)
+    )
+''')
+
+# Create documents table
+c.execute('''
+    CREATE TABLE IF NOT EXISTS documents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id INTEGER,
+        title TEXT,
+        file_path TEXT,
+        tag TEXT,
+        academic_year TEXT,
+        FOREIGN KEY (org_id) REFERENCES organizations(id)
+    )
+''')
+
+# Create users table
+c.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL
     )
 ''')
 
 c.execute("DELETE FROM organizations")
 c.execute("DELETE FROM members")
+c.execute("DELETE FROM students")
+
+# Optional: Insert default admin/SACDEV user
+c.execute('''
+    INSERT OR IGNORE INTO users (username, password, role)
+    VALUES (?, ?, ?)
+''', ('sacdev_admin', 'admin123', 'sacdev'))
+
+# Optional: Insert default RRC user
+c.execute('''
+    INSERT OR IGNORE INTO users (username, password, role)
+    VALUES (?, ?, ?)
+''', ('rrc_user', 'rrc123', 'rrc'))
 
 # Dummy data
 organizations = [

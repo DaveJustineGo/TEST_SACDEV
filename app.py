@@ -9,10 +9,10 @@ app.secret_key = 'secret123'  # Required for session and flash
 DATABASE = 'database/users.db'
 
 # --- DATABASE CONNECTION ---
-def get_db_connection():
-    conn = sqlite3.connect('database/db_script.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+# def get_db_connection():
+#     conn = sqlite3.connect('database/db_script.db')
+#     conn.row_factory = sqlite3.Row
+#     return conn
 
 def get_db():
     db = getattr(g, '_database', None)
@@ -235,5 +235,4 @@ def students_orgs():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
-    app.run(host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)
