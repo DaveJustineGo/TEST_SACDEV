@@ -65,8 +65,6 @@ c.execute('''
 
 c.execute("DELETE FROM organizations")
 c.execute("DELETE FROM members")
-c.execute("DELETE FROM students")
-
 # Optional: Insert default admin/SACDEV user
 c.execute('''
     INSERT OR IGNORE INTO users (username, password, role)
@@ -122,16 +120,6 @@ organizations = [
             (20187347240, 'Nico Ramos', 'Treasurer', '20187347240@my.exu.edu.ph', '09170000014', 'Male', 3.3, 'Media Arts', '1st', 'College of Arts and Sciences'),
             (20183686866, 'Olive Velasco', 'Curator', '20183686866@my.exu.edu.ph', '09170000015', 'Female', 3.9, 'Art History', '3rd', 'College of Arts and Sciences')
         ]
-    },
-    {
-        'name': 'ORGless',
-        'description': 'Students without organizations.',
-        'mission': 'To list students who are not part of any organization.',
-        'vision': 'Home for the orgless',
-        'status': 'Active',
-        'members': [
-            (20009990000, 'John Doe', 'Forever President', '20009990000@my.xu.edu.ph', ' 09876543210','Unknown', 0.0, 'Unknown', 'Unknown', 'Unknown'), 
-            ]
     }
 ]
 
@@ -154,6 +142,13 @@ for org in organizations:
                 sex, qpi, course, year_level, college
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (*member[:1], org_id, *member[1:]))
+
+c.execute('''
+            INSERT INTO members (
+                id, full_name, email, contact_no,
+                sex, qpi
+            ) VALUES (20009991234, 'John Doe', 20009991234, '09876543210', 'Male', 0.0)
+        ''')
 
 # Finalize changes and close connection
 conn.commit()

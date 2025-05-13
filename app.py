@@ -8,12 +8,6 @@ app.secret_key = 'secret123'  # Required for session and flash
 
 DATABASE = 'database/users.db'
 
-# --- DATABASE CONNECTION ---
-# def get_db_connection():
-#     conn = sqlite3.connect('database/db_script.db')
-#     conn.row_factory = sqlite3.Row
-#     return conn
-
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
@@ -79,8 +73,18 @@ def sacdev_dashboard():
             conn.commit()
         elif 'delete_org' in request.form:
             org_id = request.form['org_id']
+            
+            # Step 1: Set org_id of all members in the organization to NULL
+            c.execute('''UPDATE members SET org_id = NULL WHERE org_id = ?''', (org_id,))
+            
+            # Step 2: Delete the organization
             c.execute('DELETE FROM organizations WHERE id = ?', (org_id,))
+            
+            # Commit the changes
             conn.commit()
+            # org_id = request.form['org_id']
+            # c.execute('DELETE FROM organizations WHERE id = ?', (org_id,))
+            # conn.commit()
 
     # --- Ensure default org exists ---
     c.execute("SELECT * FROM organizations WHERE name = 'No Organization'")
@@ -96,23 +100,35 @@ def sacdev_dashboard():
         default_org = c.fetchone()
 
     default_org_id = default_org['id']
+    print(f"Default Org ID: {default_org_id}")
 
-    # --- Find orgless students in 'members' table ---
-    c.execute('SELECT id, name FROM students')  # Assuming you have a students table
-    all_students = c.fetchall()
+    # --- Add members without orgs to No Organization ---
+    c.execute('SELECT * FROM members WHERE org_id IS NULL')
+    orgless_members = c.fetchall()
+    for member in orgless_members:
+        c.execute('''
+            UPDATE members
+            SET org_id = ?
+            WHERE id = ?
+        ''', (default_org_id, member['id']))
+        conn.commit()
 
-    c.execute('SELECT full_name FROM members')
-    members = c.fetchall()
-    member_names = {m['full_name'] for m in members}
+    # # --- Find orgless students in 'members' table ---
+    # c.execute('SELECT id, name FROM students')  # Assuming you have a students table
+    # all_students = c.fetchall()
 
-    # --- Insert orgless students into default org ---
-    for student in all_students:
-        if student['name'] not in member_names:
-            c.execute('''
-                INSERT INTO members (org_id, full_name)
-                VALUES (?, ?)
-            ''', (default_org_id, student['name']))
-    conn.commit()
+    # c.execute('SELECT full_name FROM members')
+    # members = c.fetchall()
+    # # member_names = {m['full_name'] for m in members}
+
+    # # --- Insert orgless students into default org ---
+    # for student in members:
+    #     if student['name'] not in member_names:
+    #         c.execute('''
+    #             INSERT INTO members (org_id, full_name)
+    #             VALUES (?, ?)
+    #         ''', (default_org_id, student['name']))
+    # conn.commit()
 
     # --- Fetch orgs with member counts ---
     c.execute('''
@@ -123,18 +139,18 @@ def sacdev_dashboard():
     ''')
     orgs = c.fetchall()
 
-    # --- Orgless students (optional: those in default org) ---
-    c.execute('''
-        SELECT name FROM students
-        WHERE name NOT IN (
-            SELECT full_name FROM members WHERE org_id != ?
-        )
-    ''', (default_org_id,))
-    orgless_students = c.fetchall()
+    # # --- Orgless students (optional: those in default org) ---
+    # c.execute('''
+    #     SELECT name FROM students
+    #     WHERE name NOT IN (
+    #         SELECT full_name FROM members WHERE org_id != ?
+    #     )
+    # ''', (default_org_id,))
+    # orgless_students = c.fetchall()
 
     conn.close()
 
-    return render_template('sacdev_dashboard.html', user=session['username'], orgs=orgs, orgless_students=orgless_students)
+    return render_template('sacdev_dashboard.html', user=session['username'], orgs=orgs)
 
 
 @app.route('/rrc_dashboard')
@@ -155,6 +171,10 @@ def logout():
 @app.route('/organization/<int:org_id>', methods=['GET', 'POST'])
 def view_organization(org_id):
     db = get_db()
+    c = db.cursor()
+    conn = sqlite3.connect('database/users.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
 
     # Add new member manually by entering details
     if request.method == 'POST':
@@ -169,18 +189,28 @@ def view_organization(org_id):
             year_level = request.form['year_level']
             college = request.form['college']
 
-            db.execute(
+            c.execute(
                 '''INSERT INTO members (
                     org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                 (org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college)
             )
-            db.commit()
+            conn.commit()
+
 
         elif 'kick_member' in request.form:
-            member_id = request.form['member_id']
-            db.execute('DELETE FROM members WHERE id = ?', (member_id,))
-            db.commit()
+            try:
+                # --- Ensure default org exists ---
+                c.execute("SELECT * FROM organizations WHERE name = 'No Organization'")
+                default_org = c.fetchone()
+                default_org_id = default_org['id']
+                print(f"Default Org ID: {default_org_id}")
+                member_id = request.form['member_id']
+                c.execute('UPDATE members SET org_id = ? WHERE id = ?', (default_org_id, member_id))
+                conn.commit()
+            
+            except Exception as e:
+                print(f"Error: {e}")
 
         return redirect(url_for('view_organization', org_id=org_id))
 
