@@ -263,6 +263,23 @@ def students_orgs():
         import traceback
         return f"<pre>{traceback.format_exc()}</pre>"
 
+@app.route('/organization_list', methods=['GET'])
+def organization_list():
+    conn = sqlite3.connect('database/users.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+
+    search_query = request.args.get('search', '').strip()
+
+    if search_query:
+        c.execute("SELECT * FROM organizations WHERE name LIKE ? ORDER BY name ASC", ('%' + search_query + '%',))
+    else:
+        c.execute("SELECT * FROM organizations ORDER BY name ASC")
+
+    orgs = c.fetchall()
+    conn.close()
+    return render_template('organization_list.html', orgs=orgs, search_query=search_query)
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
