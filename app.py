@@ -15,6 +15,13 @@ def get_db():
         db.row_factory = sqlite3.Row
     return db
 
+def get_def():
+    conn = sqlite3.connect('database/users.db')
+    c = conn.cursor()
+    c.execute("SELECT * FROM organizations WHERE name = 'No Organization'")
+    default_org = c.fetchone()
+    return default_org['id']
+
 @app.teardown_appcontext
 def close_connection(exception):
     db = getattr(g, '_database', None)
@@ -113,23 +120,6 @@ def sacdev_dashboard():
         ''', (default_org_id, member['id']))
         conn.commit()
 
-    # # --- Find orgless students in 'members' table ---
-    # c.execute('SELECT id, name FROM students')  # Assuming you have a students table
-    # all_students = c.fetchall()
-
-    # c.execute('SELECT full_name FROM members')
-    # members = c.fetchall()
-    # # member_names = {m['full_name'] for m in members}
-
-    # # --- Insert orgless students into default org ---
-    # for student in members:
-    #     if student['name'] not in member_names:
-    #         c.execute('''
-    #             INSERT INTO members (org_id, full_name)
-    #             VALUES (?, ?)
-    #         ''', (default_org_id, student['name']))
-    # conn.commit()
-
     # --- Fetch orgs with member counts ---
     c.execute('''
         SELECT o.*, COUNT(m.id) AS member_count
@@ -138,16 +128,6 @@ def sacdev_dashboard():
         GROUP BY o.id
     ''')
     orgs = c.fetchall()
-
-    # # --- Orgless students (optional: those in default org) ---
-    # c.execute('''
-    #     SELECT name FROM students
-    #     WHERE name NOT IN (
-    #         SELECT full_name FROM members WHERE org_id != ?
-    #     )
-    # ''', (default_org_id,))
-    # orgless_students = c.fetchall()
-
     conn.close()
 
     return render_template('sacdev_dashboard.html', user=session['username'], orgs=orgs)
@@ -178,27 +158,27 @@ def view_organization(org_id):
 
     # Add new member manually by entering details
     if request.method == 'POST':
-        if 'add_member' in request.form:
-            full_name = request.form['full_name']
-            position = request.form['position']
-            email = request.form['email']
-            contact_no = request.form['contact_no']
-            sex = request.form['sex']
-            qpi = request.form['qpi']
-            course = request.form['course']
-            year_level = request.form['year_level']
-            college = request.form['college']
+        # if 'add_member' in request.form:  # remove
+        #     full_name = request.form['full_name']
+        #     position = request.form['position']
+        #     email = request.form['email']
+        #     contact_no = request.form['contact_no']
+        #     sex = request.form['sex']
+        #     qpi = request.form['qpi']
+        #     course = request.form['course']
+        #     year_level = request.form['year_level']
+        #     college = request.form['college']
 
-            c.execute(
-                '''INSERT INTO members (
-                    org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                (org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college)
-            )
-            conn.commit()
+        #     c.execute(
+        #         '''INSERT INTO members (
+        #             org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college
+        #         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        #         (org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college)
+        #     )
+        #     conn.commit()
 
 
-        elif 'kick_member' in request.form:
+        if 'kick_member' in request.form:
             try:
                 # --- Ensure default org exists ---
                 c.execute("SELECT * FROM organizations WHERE name = 'No Organization'")
@@ -262,6 +242,61 @@ def students_orgs():
     except Exception as e:
         import traceback
         return f"<pre>{traceback.format_exc()}</pre>"
+
+# --- students operations---
+@app.route('/students/<int:student_id>', methods=['POST','GET'])  #default id should be 0 when adding student
+def student_details(student_id):
+    conn = sqlite3.connect('database/users.db')
+    c = conn.cursor()
+    vstud = redirect(url_for('students_orgs'))
+    if request.method == 'POST':
+        if 'add_student' in request.form:
+            full_name = request.form['full_name']
+            position = request.form['position']
+            email = request.form['email']
+            contact_no = request.form['contact_no']
+            sex = request.form['sex']
+            qpi = request.form['qpi']
+            course = request.form['course']
+            year_level = request.form['year_level']
+            college = request.form['college']
+            org_id = request.form['org']
+
+            c.execute(
+                '''INSERT INTO members (
+                    org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                (org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college)
+            )
+            conn.commit()
+            return redirect(url_for('view_organization', org_id=org_id))
+
+        elif 'update_student' in request.form:
+            qpi = request.form['qpi']
+            year_level = request.form['year_level']
+            college = request.form['college']
+            course = request.form['course']
+
+            c.execute('''
+                UPDATE members
+                SET qpi = ?, year_level = ?, college = ?, course = ?
+                WHERE id = ?
+            ''', (qpi, year_level, college, course, student_id))
+            conn.commit()
+            return vstud
+
+        elif 'chorg' in request.form:
+            new_org_id = request.form['new_org_id']
+            c.execute('UPDATE members SET org_id = ? WHERE id = ?', (new_org_id, student_id))
+            conn.commit()
+            return redirect(url_for('view_organization', org_id=org_id))
+            
+        elif 'flag' in request.form:
+            c.execute('UPDATE members SET flagged = 1 WHERE id = ?', (student_id,))
+            conn.commit()
+            return vstud
+
+
 
 
 if __name__ == '__main__':

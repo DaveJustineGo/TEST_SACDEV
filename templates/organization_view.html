@@ -195,8 +195,9 @@
 {% endif %}
 
 <h3>Add New Member</h3>
-<form method="POST" style="max-width: 600px;">
-  <input type="hidden" name="add_member" value="1">
+<form method="POST" action="/students/0" style="max-width: 600px;">
+  <input type="hidden" name="add_student" value="1">
+  <input type="hidden" name="org" value='{{ org.id }}'> 
   <input type="text" name="full_name" placeholder="Full Name" required>
   <input type="text" name="position" placeholder="Position" required>
   <input type="email" name="email" placeholder="Email">
