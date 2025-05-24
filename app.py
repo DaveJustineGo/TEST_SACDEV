@@ -243,6 +243,7 @@ def students_orgs():
         import traceback
         return f"<pre>{traceback.format_exc()}</pre>"
 
+
 # --- students operations---
 @app.route('/students/<int:student_id>', methods=['POST','GET'])  #default id should be 0 when adding student
 def student_details(student_id):
@@ -296,6 +297,24 @@ def student_details(student_id):
             conn.commit()
             return vstud
 
+
+
+@app.route('/organization_list', methods=['GET'])
+def organization_list():
+    conn = sqlite3.connect('database/users.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+
+    search_query = request.args.get('search', '').strip()
+
+    if search_query:
+        c.execute("SELECT * FROM organizations WHERE name LIKE ? ORDER BY name ASC", ('%' + search_query + '%',))
+    else:
+        c.execute("SELECT * FROM organizations ORDER BY name ASC")
+
+    orgs = c.fetchall()
+    conn.close()
+    return render_template('organization_list.html', orgs=orgs, search_query=search_query)
 
 
 
