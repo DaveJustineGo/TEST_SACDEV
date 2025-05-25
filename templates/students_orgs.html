@@ -126,7 +126,35 @@
             display: table-row;
         }
 
-        
+        /* Search form styles */
+        form.search-form {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .search-input {
+            width: 60%;
+            max-width: 400px;
+            padding: 10px 15px;
+            border-radius: 6px 0 0 6px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        .search-button {
+            padding: 10px 20px;
+            border-radius: 0 6px 6px 0;
+            border: none;
+            background-color: #27ae60;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .search-button:hover {
+            background-color: #219150;
+        }
     </style>
 </head>
 <body>
@@ -135,7 +163,19 @@
     </div>
 
     <div class="container">
-        <a href="http://127.0.0.1:5000/sacdev_dashboard" class="back-button">← Back to Dashboard</a>
+        <a href="{{ url_for('sacdev_dashboard') }}" class="back-button">← Back to Dashboard</a>
+
+        <!-- Search Form -->
+        <form method="GET" action="{{ url_for('students_orgs') }}" class="search-form">
+            <input
+                type="text"
+                name="search"
+                placeholder="Search by student or organization..."
+                value="{{ search_query | default('') }}"
+                class="search-input"
+            />
+            <button type="submit" class="search-button">Search</button>
+        </form>
 
         {% if students %}
         <table>
@@ -161,9 +201,8 @@
                         <table>
                             <tr>
                                 <td colspan="4">Course : {{ student['course'] }}</td>
-                                <td colspan="3">College : {{student['college']}}</td>
+                                <td colspan="3">College : {{ student['college'] }}</td>
                                 <td colspan="1">Year : {{ student['year_level'] }}</td>
-                            
                             </tr>
                             <tr>
                                 <td colspan="2">Student ID : {{ student['id'] }}</td>
@@ -173,7 +212,6 @@
                             </tr>
                         </table>
                     </td>
-
                 </tr>
                 {% endfor %}
             </tbody>
@@ -193,6 +231,6 @@
                 row.classList.toggle('expanded');
             });
         });
-</script>
+    </script>
 </body>
 </html>

@@ -60,36 +60,16 @@ def sacdev_dashboard():
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
 
-    # Add organization
-    if request.method == 'POST':
-        if 'add_org' in request.form:
-            name = request.form['name']
-            description = request.form['description']
-            mission = request.form['mission']
-            vision = request.form['vision']
-            status = request.form['status']
-            c.execute('INSERT INTO organizations (name, description, mission, vision, status) VALUES (?, ?, ?, ?, ?)',
-                      (name, description, mission, vision, status))
-            conn.commit()
-        elif 'delete_org' in request.form:
-            org_id = request.form['org_id']
-            
-            # Step 1: Set org_id of all members in the organization to NULL
-            c.execute('''UPDATE members SET org_id = NULL WHERE org_id = ?''', (org_id,))
-            
-            # Step 2: Delete the organization
-            c.execute('DELETE FROM organizations WHERE id = ?', (org_id,))
-            
-            # Commit the changes
-            conn.commit()
-            # org_id = request.form['org_id']
-            # c.execute('DELETE FROM organizations WHERE id = ?', (org_id,))
-            # conn.commit()
+    # Delete organization
+    if request.method == 'POST' and 'delete_org' in request.form:
+        org_id = request.form['org_id']
+        c.execute('UPDATE members SET org_id = NULL WHERE org_id = ?', (org_id,))
+        c.execute('DELETE FROM organizations WHERE id = ?', (org_id,))
+        conn.commit()
 
-    # --- Ensure default org exists ---
+    # Ensure default org exists
     c.execute("SELECT * FROM organizations WHERE name = 'No Organization'")
     default_org = c.fetchone()
-
     if not default_org:
         c.execute('''
             INSERT INTO organizations (name, description, mission, vision, status)
@@ -100,37 +80,15 @@ def sacdev_dashboard():
         default_org = c.fetchone()
 
     default_org_id = default_org['id']
-    print(f"Default Org ID: {default_org_id}")
 
-    # --- Add members without orgs to No Organization ---
+    # Assign orgless members to "No Organization"
     c.execute('SELECT * FROM members WHERE org_id IS NULL')
     orgless_members = c.fetchall()
     for member in orgless_members:
-        c.execute('''
-            UPDATE members
-            SET org_id = ?
-            WHERE id = ?
-        ''', (default_org_id, member['id']))
+        c.execute('UPDATE members SET org_id = ? WHERE id = ?', (default_org_id, member['id']))
         conn.commit()
 
-    # # --- Find orgless students in 'members' table ---
-    # c.execute('SELECT id, name FROM students')  # Assuming you have a students table
-    # all_students = c.fetchall()
-
-    # c.execute('SELECT full_name FROM members')
-    # members = c.fetchall()
-    # # member_names = {m['full_name'] for m in members}
-
-    # # --- Insert orgless students into default org ---
-    # for student in members:
-    #     if student['name'] not in member_names:
-    #         c.execute('''
-    #             INSERT INTO members (org_id, full_name)
-    #             VALUES (?, ?)
-    #         ''', (default_org_id, student['name']))
-    # conn.commit()
-
-    # --- Fetch orgs with member counts ---
+    # Fetch all organizations and their member counts
     c.execute('''
         SELECT o.*, COUNT(m.id) AS member_count
         FROM organizations o
@@ -139,18 +97,38 @@ def sacdev_dashboard():
     ''')
     orgs = c.fetchall()
 
-    # # --- Orgless students (optional: those in default org) ---
-    # c.execute('''
-    #     SELECT name FROM students
-    #     WHERE name NOT IN (
-    #         SELECT full_name FROM members WHERE org_id != ?
-    #     )
-    # ''', (default_org_id,))
-    # orgless_students = c.fetchall()
-
     conn.close()
 
     return render_template('sacdev_dashboard.html', user=session['username'], orgs=orgs)
+
+@app.route('/add_organization', methods=['POST'])
+def add_organization():
+    if session.get('role') != 'sacdev':
+        return redirect('/login')
+
+    name = request.form['name']
+    description = request.form['description']
+    mission = request.form['mission']
+    vision = request.form['vision']
+    status = request.form['status']
+
+    conn = sqlite3.connect('database/users.db')
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO organizations (name, description, mission, vision, status)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (name, description, mission, vision, status))
+    conn.commit()
+    conn.close()
+
+    return redirect('/sacdev_dashboard')
+
+
+@app.route('/add_organization_form', methods=['GET'])
+def add_organization_form():
+    if session.get('role') != 'sacdev':
+        return redirect('/login')
+    return render_template('add_organization.html')
 
 
 @app.route('/rrc_dashboard')
@@ -243,25 +221,35 @@ def view_organization(org_id):
 # ---STUDENTS ORGS--- 
 @app.route('/students_orgs')
 def students_orgs():
+    search_query = request.args.get('search', '').strip()
     try:
         conn = sqlite3.connect('database/users.db')
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
 
-        c.execute('''
-            SELECT o.name AS org_name, m.*
-            FROM members m
-            JOIN organizations o ON m.org_id = o.id
-        ''')
+        if search_query:
+            c.execute('''
+                SELECT o.name AS org_name, m.*
+                FROM members m
+                JOIN organizations o ON m.org_id = o.id
+                WHERE m.full_name LIKE ? OR o.name LIKE ?
+            ''', ('%' + search_query + '%', '%' + search_query + '%'))
+        else:
+            c.execute('''
+                SELECT o.name AS org_name, m.*
+                FROM members m
+                JOIN organizations o ON m.org_id = o.id
+            ''')
 
         students = c.fetchall()
         conn.close()
 
-        return render_template('students_orgs.html', students=students)
+        return render_template('students_orgs.html', students=students, search_query=search_query)
 
     except Exception as e:
         import traceback
         return f"<pre>{traceback.format_exc()}</pre>"
+
 
 @app.route('/organization_list', methods=['GET'])
 def organization_list():
@@ -279,6 +267,7 @@ def organization_list():
     orgs = c.fetchall()
     conn.close()
     return render_template('organization_list.html', orgs=orgs, search_query=search_query)
+
 
 
 if __name__ == '__main__':

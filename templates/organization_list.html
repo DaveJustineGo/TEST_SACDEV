@@ -75,6 +75,36 @@
     .view-btn:hover {
         background-color: #2980b9;
     }
+
+    /* Search form styles */
+    .search-form {
+        margin: 20px 0 30px;
+        text-align: center;
+    }
+
+    .search-input {
+        width: 60%;
+        max-width: 400px;
+        padding: 10px 15px;
+        border-radius: 6px 0 0 6px;
+        border: none;
+        font-size: 16px;
+    }
+
+    .search-button {
+        padding: 10px 20px;
+        border-radius: 0 6px 6px 0;
+        border: none;
+        background-color: #27ae60;
+        color: white;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .search-button:hover {
+        background-color: #219150;
+    }
 </style>
 
 <div class="dashboard-container">
@@ -84,6 +114,11 @@
             <a href="{{ url_for('sacdev_dashboard') }}" class="btn-back">← Back to Dashboard</a>
         </div>
     </div>
+
+    <form method="GET" action="{{ url_for('organization_list') }}" class="search-form">
+        <input type="text" name="search" placeholder="Search organization..." value="{{ search_query | default('') }}" class="search-input" />
+        <button type="submit" class="search-button">Search</button>
+    </form>
 
     <h3 class="section-title">Organizations</h3>
     {% for org in orgs %}
@@ -97,4 +132,14 @@
     <p>No organizations available at the moment.</p>
     {% endfor %}
 </div>
+
+<script>
+    const searchInput = document.querySelector('.search-input');
+    searchInput.addEventListener('input', () => {
+        if (searchInput.value.trim() === '') {
+            // When input cleared, reload page without search param
+            window.location.href = "{{ url_for('organization_list') }}";
+        }
+    });
+</script>
 {% endblock %}

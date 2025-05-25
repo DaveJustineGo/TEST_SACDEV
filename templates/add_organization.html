@@ -1,0 +1,74 @@
+<!-- templates/add_organization.html -->
+{% extends 'base.html' %}
+{% block title %}Add Organization{% endblock %}
+
+{% block content %}
+<style>
+    body {
+        font-family: 'Segoe UI', sans-serif;
+        background: linear-gradient(to right, #2c3e50, #3498db);
+        color: white;
+    }
+
+    .form-container {
+        max-width: 700px;
+        margin: 60px auto;
+        padding: 30px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+    }
+
+    h2 {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    input, textarea, select {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 15px;
+        border: none;
+        border-radius: 6px;
+    }
+
+    .submit-btn {
+        background-color: #27ae60;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        width: 100%;
+    }
+
+    .submit-btn:hover {
+        background-color: #219150;
+    }
+
+    .back-link {
+        display: block;
+        text-align: center;
+        margin-top: 15px;
+        color: white;
+        text-decoration: underline;
+    }
+</style>
+
+<div class="form-container">
+    <h2>➕ Add New Organization</h2>
+    <form method="POST" action="{{ url_for('add_organization') }}">
+        <input type="text" name="name" placeholder="Organization Name" required>
+        <textarea name="description" placeholder="Description" required></textarea>
+        <textarea name="mission" placeholder="Mission"></textarea>
+        <textarea name="vision" placeholder="Vision"></textarea>
+        <select name="status" required>
+            <option value="">-- Select Status --</option>
+            <option value="Active">Active</option>
+            <option value="Pending">Pending</option>
+            <option value="Rejected">Rejected</option>
+        </select>
+        <button type="submit" class="submit-btn">Submit</button>
+    </form>
+    <a href="{{ url_for('sacdev_dashboard') }}" class="back-link">← Back to Dashboard</a>
+</div>
+{% endblock %}
