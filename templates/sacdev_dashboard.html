@@ -103,6 +103,78 @@
     .add-org-btn:hover {
         background-color: #219150;
     }
+.search-form {
+    display: flex;
+    gap: 10px;
+    max-width: 1000px;
+    margin-bottom: 20px;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.search-input {
+    flex: 4; /* 🍰 Stretch it more */
+    min-width: 300px;
+    height: 44px;
+    font-size: 16px;
+    border-radius: 8px;
+    padding: 10px 15px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+}
+
+
+.sort-dropdown {
+    flex: 1.5;
+    height: 44px;
+    font-size: 16px;
+    border-radius: 8px;
+    padding: 10px 15px;
+    border: 1px solid #ccc;
+    background-color: white;
+    color: black;
+    appearance: none;
+    box-sizing: border-box;
+}
+
+.search-button {
+    height: 44px;
+    font-size: 16px;
+    padding: 0 16px;  /* 🎯 Shorter width */
+    border-radius: 8px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.3s;
+}
+
+.search-button:hover {
+    background-color: #218838;
+}
+
+.reset-button {
+    height: 44px;
+    font-size: 16px;
+    padding: 0 20px;
+    border-radius: 8px;
+    background-color: #e74c3c;
+    color: white;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    transition: background-color 0.3s;
+}
+
+.reset-button:hover {
+    background-color: #c0392b;
+}
+
+
 </style>
 
 <a href="{{ url_for('logout') }}" class="logout-top-right">Logout</a>
@@ -111,25 +183,47 @@
     <div class="dashboard-header">
         <h2>Welcome, {{ user|capitalize }} 👋</h2>
     </div>
+    
 
     <a href="{{ url_for('students_orgs') }}" class="btn-view-students">View All Students & Their Organizations</a>
     <a href="{{ url_for('organization_list') }}" class="btn-view-students">View All Organizations</a>
     <a href="{{ url_for('add_organization_form') }}" class="add-org-btn">➕ Add New Organization</a>
 
     <h3 class="section-title">Registered Organizations</h3>
-    {% for org in orgs %}
-    <div class="org-card">
-        <h4>{{ org[1] }}</h4>
-        <p>{{ org[2] }}</p>
-        <span class="status {{ org[5]|lower }}">{{ org[5] }}</span>
-        <a href="{{ url_for('view_organization', org_id=org[0]) }}" class="view-btn">View</a>
-        <form method="POST" style="display:inline;">
-            <input type="hidden" name="org_id" value="{{ org[0] }}">
-            <button type="submit" name="delete_org" class="delete-btn">Delete</button>
-        </form>
-    </div>
-    {% else %}
-    <p>No organizations registered yet.</p>
-    {% endfor %}
+
+<!-- ✅ Search & Sort Form -->
+<form method="GET" action="{{ url_for('sacdev_dashboard') }}" class="search-form">
+    <input type="text" name="search" placeholder="Search organizations..." value="{{ request.args.get('search', '') }}" class="search-input">
+
+    <select name="sort" class="sort-dropdown">
+        <option value="">Sort by...</option>
+        <option value="name" {% if request.args.get('sort') == 'name' %}selected{% endif %}>Alphabetical</option>
+        <option value="active" {% if request.args.get('sort') == 'active' %}selected{% endif %}>Active</option>
+        <option value="pending" {% if request.args.get('sort') == 'pending' %}selected{% endif %}>Pending</option>
+        <option value="inactive" {% if request.args.get('sort') == 'inactive' %}selected{% endif %}>Inactive</option>
+    </select>
+
+    <button type="submit" class="search-button">Search</button>
+    <!-- 🧼 Reset button -->
+    <a href="{{ url_for('sacdev_dashboard') }}" class="reset-button">Reset</a>
+</form>
+</form>
+
+{% for org in orgs %}
+<div class="org-card">
+    <h4>{{ org[1] }}</h4>
+    <p>{{ org[2] }}</p>
+    <p>👥 Members: {{ org['member_count'] }}</p>
+    <span class="status {{ org[5]|lower }}">{{ org[5] }}</span>
+    <a href="{{ url_for('view_organization', org_id=org[0]) }}" class="view-btn">View</a>
+    <form method="POST" style="display:inline;">
+        <input type="hidden" name="org_id" value="{{ org[0] }}">
+        <button type="submit" name="delete_org" class="delete-btn">Delete</button>
+    </form>
+</div>
+{% else %}
+<p>No organizations registered yet.</p>
+{% endfor %}
+
 </div>
 {% endblock %}

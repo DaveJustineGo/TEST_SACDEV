@@ -89,16 +89,35 @@ def sacdev_dashboard():
         conn.commit()
 
     # Fetch all organizations and their member counts
-    c.execute('''
-        SELECT o.*, COUNT(m.id) AS member_count
-        FROM organizations o
-        LEFT JOIN members m ON o.id = m.org_id
-        GROUP BY o.id
-    ''')
+    search = request.args.get('search', '').strip()
+    sort = request.args.get('sort', '').lower()
+
+    query = '''
+    SELECT o.*, COUNT(m.id) AS member_count
+    FROM organizations o
+    LEFT JOIN members m ON o.id = m.org_id
+'''
+    params = []
+
+    if search:
+        query += ' WHERE o.name LIKE ? OR o.description LIKE ?'
+        params.extend([f'%{search}%', f'%{search}%'])
+
+    # Grouping
+    query += ' GROUP BY o.id'
+
+# Sorting logic
+    if sort == 'name':
+        query += ' ORDER BY o.name COLLATE NOCASE ASC'
+    elif sort in ['active', 'pending', 'inactive']:
+        query += ' ORDER BY (o.status = ?) DESC, o.name ASC'
+        params.append(sort.capitalize())
+
+# ⬇️ Always execute the final query, regardless of which branch ran
+    c.execute(query, params)
     orgs = c.fetchall()
 
-    conn.close()
-
+# ⬇️ And return from the function here
     return render_template('sacdev_dashboard.html', user=session['username'], orgs=orgs)
 
 @app.route('/add_organization', methods=['POST'])
