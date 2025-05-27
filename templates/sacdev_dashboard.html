@@ -191,7 +191,7 @@
 
     <h3 class="section-title">Registered Organizations</h3>
 
-<!-- ✅ Search & Sort Form -->
+<!--  Search & Sort Form -->
 <form method="GET" action="{{ url_for('sacdev_dashboard') }}" class="search-form">
     <input type="text" name="search" placeholder="Search organizations..." value="{{ request.args.get('search', '') }}" class="search-input">
 
@@ -204,7 +204,7 @@
     </select>
 
     <button type="submit" class="search-button">Search</button>
-    <!-- 🧼 Reset button -->
+    <!--  Reset button -->
     <a href="{{ url_for('sacdev_dashboard') }}" class="reset-button">Reset</a>
 </form>
 </form>
@@ -213,7 +213,7 @@
 <div class="org-card">
     <h4>{{ org[1] }}</h4>
     <p>{{ org[2] }}</p>
-    <p>👥 Members: {{ org['member_count'] }}</p>
+    <p>Members: {{ org['member_count'] }}</p>
     <span class="status {{ org[5]|lower }}">{{ org[5] }}</span>
     <a href="{{ url_for('view_organization', org_id=org[0]) }}" class="view-btn">View</a>
     <form method="POST" style="display:inline;">

@@ -238,36 +238,136 @@ def view_organization(org_id):
                            female_count=female_count)
 
 # ---STUDENTS ORGS--- 
+MAJOR_POSITIONS = {'President', 'Vice President', 'Chair', 'Secretary', 'Treasurer'}
+
 @app.route('/students_orgs')
 def students_orgs():
-    search_query = request.args.get('search', '').strip()
-    try:
-        conn = sqlite3.connect('database/users.db')
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute('''
+    SELECT m.*, o.name AS org_name
+    FROM members m
+    JOIN organizations o ON m.org_id = o.id
+    ''')
+    rows = c.fetchall()
+    conn.close()
 
-        if search_query:
-            c.execute('''
-                SELECT o.name AS org_name, m.*
-                FROM members m
-                JOIN organizations o ON m.org_id = o.id
-                WHERE m.full_name LIKE ? OR o.name LIKE ?
-            ''', ('%' + search_query + '%', '%' + search_query + '%'))
-        else:
-            c.execute('''
-                SELECT o.name AS org_name, m.*
-                FROM members m
-                JOIN organizations o ON m.org_id = o.id
-            ''')
+    students = {}
+    for r in rows:
+        name = r['full_name']
 
-        students = c.fetchall()
-        conn.close()
+        if name not in students:
+            students[name] = {
+                'id': r['id'],
+                'full_name': name,
+                'qpi': r['qpi'],
+                'positions': [],
+                'orgs': [],
+                'flag': False,
+                'flag_reasons': [],
+                'overridden': bool(r['flag_overridden']),
+                'manually_flagged': bool(r['manually_flagged']),
+                'manual_reason': r['manual_flag_reason'],
+                'email': r['email'],
+                'contact_no': r['contact_no'],
+                'sex': r['sex'],
+                'course': r['course'],
+                'year_level': r['year_level'],
+                'college': r['college']
+            }
 
-        return render_template('students_orgs.html', students=students, search_query=search_query)
+        students[name]['positions'].append(r['position'])
+        students[name]['orgs'].append(r['org_name'])
 
-    except Exception as e:
-        import traceback
-        return f"<pre>{traceback.format_exc()}</pre>"
+   
+    # Remove duplicates in orgs/positions (optional)
+    for student in students.values():
+        major_count = sum(1 for pos in student['positions'] if pos in MAJOR_POSITIONS)
+        low_qpi = float(student['qpi']) < 2.0
+
+        reasons = []
+        if major_count > 1:
+            reasons.append("Multiple major positions")
+        if low_qpi:
+            reasons.append("QPI below 2.0")
+
+        student['auto_flag'] = bool(reasons) and not student['overridden']
+        student['flag_reasons'] = reasons
+        student['flag'] = student['auto_flag'] or student['manually_flagged']
+
+    return render_template('students_orgs.html', students=students.values())
+
+@app.route('/override_flag', methods=['POST'])
+def override_flag():
+    if session.get('role') != 'sacdev':
+        return 'Unauthorized', 403
+    member_id = request.form['member_id']
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute('UPDATE members SET flag_overridden = 1 WHERE id = ?', (member_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('students_orgs'))
+
+@app.route('/toggle_override_flag', methods=['POST'])
+def toggle_override_flag():
+    if session.get('role') != 'sacdev':
+        return 'Unauthorized', 403
+
+    member_id = request.form['member_id']
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+
+    # Toggle the override: 1 -> 0, 0 -> 1
+    c.execute('''
+        UPDATE members
+        SET flag_overridden = CASE flag_overridden WHEN 1 THEN 0 ELSE 1 END
+        WHERE id = ?
+    ''', (member_id,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('students_orgs'))
+@app.route('/manual_flag', methods=['POST'])
+def manual_flag():
+    if session.get('role') != 'sacdev':
+        return 'Unauthorized', 403
+
+    member_id = request.form['member_id']
+    reason = request.form['manual_reason']
+
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute('''
+        UPDATE members
+        SET manually_flagged = 1,
+            manual_flag_reason = ?
+        WHERE id = ?
+    ''', (reason, member_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('students_orgs'))
+
+@app.route('/manual_unflag', methods=['POST'])
+def manual_unflag():
+    if session.get('role') != 'sacdev':
+        return 'Unauthorized', 403
+
+    member_id = request.form['member_id']
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute('''
+        UPDATE members
+        SET manually_flagged = 0,
+            manual_flag_reason = NULL
+        WHERE id = ?
+    ''', (member_id,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('students_orgs'))
 
 
 @app.route('/organization_list', methods=['GET'])

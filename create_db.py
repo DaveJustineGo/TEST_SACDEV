@@ -31,7 +31,7 @@ c.execute('''
     )
 ''')
 
-# Create members table
+# Create members table with flag_overridden column
 c.execute('''
     CREATE TABLE IF NOT EXISTS members (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,9 +45,13 @@ c.execute('''
         course TEXT,
         year_level TEXT,
         college TEXT,
+        flag_overridden INTEGER DEFAULT 0,
+        manually_flagged INTEGER DEFAULT 0,
+        manual_flag_reason TEXT,
         FOREIGN KEY (org_id) REFERENCES organizations(id)
     )
 ''')
+
 
 # Create documents table
 c.execute('''
@@ -62,27 +66,17 @@ c.execute('''
     )
 ''')
 
-# Optional: Insert default admin/SACDEV user
-c.execute('''
-    INSERT OR IGNORE INTO users (username, password, role)
-    VALUES (?, ?, ?)
-''', ('sacdev_admin', 'admin123', 'sacdev'))
+# Optional users
+c.execute('INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)',
+          ('sacdev_admin', 'admin123', 'sacdev'))
+c.execute('INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)',
+          ('rrc_user', 'rrc123', 'rrc'))
 
-# Optional: Insert default RRC user
-c.execute('''
-    INSERT OR IGNORE INTO users (username, password, role)
-    VALUES (?, ?, ?)
-''', ('rrc_user', 'rrc123', 'rrc'))
-
-# Optional: Insert a sample organization
-c.execute('''
-    INSERT INTO organizations (name, description, mission, vision, status)
-    VALUES (?, ?, ?, ?, ?)
-''', ('Sample Organization', 'This is a dummy organization for testing purposes.', 
-      'To provide an example for the student members.', 'To promote excellence and learning.',
-      'Active'))
-
-# Get the ID of the inserted organization
+# Sample organization
+c.execute('INSERT INTO organizations (name, description, mission, vision, status) VALUES (?, ?, ?, ?, ?)', 
+          ('Sample Organization', 'This is a dummy organization for testing purposes.',
+           'To provide an example for the student members.', 'To promote excellence and learning.',
+           'Active'))
 org_id = c.lastrowid
 
 # Create students table
@@ -93,7 +87,7 @@ c.execute('''
     )
 ''')
 
-# Insert all students (some will be members, others will remain orgless)
+# Add student list
 all_students = [
     'John Doe', 'Jane Smith', 'Mark Johnson', 'Emily Davis', 'Chris Lee',
     'Lara Croft', 'Tony Stark', 'Bruce Wayne', 'Clark Kent', 'Diana Prince'
@@ -102,22 +96,21 @@ all_students = [
 for name in all_students:
     c.execute('INSERT OR IGNORE INTO students (name) VALUES (?)', (name,))
 
-
-# Insert 5 dummy students (members)
+# Add members (linked to the organization)
 students = [
-    ('John Doe', 'President', 'johndoe@example.com', '09171234567', 'Male', 3.5, 'Computer Science', '4th', 'College of Engineering'),
-    ('Jane Smith', 'Vice President', 'janesmith@example.com', '09171234568', 'Female', 3.7, 'Business Administration', '3rd', 'College of Business'),
-    ('Mark Johnson', 'Secretary', 'markjohnson@example.com', '09171234569', 'Male', 3.8, 'Electrical Engineering', '2nd', 'College of Engineering'),
-    ('Emily Davis', 'Treasurer', 'emilydavis@example.com', '09171234570', 'Female', 3.6, 'Psychology', '1st', 'College of Arts and Sciences'),
-    ('Chris Lee', 'Public Relations Officer', 'chrislee@example.com', '09171234571', 'Male', 3.9, 'Mechanical Engineering', '4th', 'College of Engineering')
+    ('John Doe', 'President', 'johndoe@example.com', '09171234567', 'Male', 1.9, 'CS', '4th', 'Engineering'),
+    ('John Doe', 'Vice President', 'johndoe@example.com', '09171234567', 'Male', 1.9, 'CS', '4th', 'Engineering'),
+    ('Jane Smith', 'Vice President', 'janesmith@example.com', '09171234568', 'Female', 3.7, 'Business', '3rd', 'Business'),
+    ('Mark Johnson', 'Secretary', 'markjohnson@example.com', '09171234569', 'Male', 3.8, 'EE', '2nd', 'Engineering'),
+    ('Emily Davis', 'Treasurer', 'emilydavis@example.com', '09171234570', 'Female', 3.6, 'Psychology', '1st', 'Arts'),
+    ('Chris Lee', 'PRO', 'chrislee@example.com', '09171234571', 'Male', 3.9, 'ME', '4th', 'Engineering')
 ]
 
-# Insert each student into the 'members' table
-for student in students:
+for s in students:
     c.execute('''
         INSERT INTO members (org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (org_id, student[0], student[1], student[2], student[3], student[4], student[5], student[6], student[7], student[8]))
+    ''', (org_id, *s))
 
 conn.commit()
 conn.close()
