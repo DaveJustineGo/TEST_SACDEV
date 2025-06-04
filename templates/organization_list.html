@@ -16,9 +16,17 @@
     }
 
     .dashboard-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+    display: flex;
+    justify-content: flex-start; /* Aligns items to the left */
+    align-items: center;
+    gap: 10px; /* Optional: spacing between button and other items */
+    }
+
+    .page-title {
+    text-align: center;
+    font-size: 28px;
+    margin-top: 10px;
+    margin-bottom: 20px;
     }
 
     .btn-back, .btn-logout {
@@ -109,11 +117,10 @@
 
 <div class="dashboard-container">
     <div class="dashboard-header">
-        <h2>All Registered Organizations</h2>
-        <div>
-            <a href="{{ url_for('sacdev_dashboard') }}" class="btn-back">← Back to Dashboard</a>
-        </div>
+        <a href="{{ url_for('sacdev_dashboard') }}" class="btn-back">← Back to Dashboard</a>
     </div>
+
+    <h2 class="page-title">All Registered Organizations</h2>
 
     <form method="GET" action="{{ url_for('organization_list') }}" class="search-form">
         <input type="text" name="search" placeholder="Search organization..." value="{{ search_query | default('') }}" class="search-input" />
@@ -132,6 +139,7 @@
     <p>No organizations available at the moment.</p>
     {% endfor %}
 </div>
+
 
 <script>
     const searchInput = document.querySelector('.search-input');

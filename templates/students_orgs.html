@@ -138,7 +138,25 @@
       color: #aaa;
       font-size: 13px;
     }
-  </style>
+   
+    .back-button {
+        display: inline-block;
+        background-color: #2980b9;
+        color: white;
+        padding: 10px 18px;
+        text-decoration: none;
+        border-radius: 6px;
+        transition: background-color 0.3s ease;
+        margin-bottom: 20px;
+    }
+
+    .back-button:hover {
+        background-color: #c0392b;
+    }
+
+</style>
+
+
 </head>
 <body>
   <div class="header">
@@ -171,7 +189,14 @@
         {% for student in students %}
         <tr class="expand-toggle">
           <td>{{ student.orgs | join(', ') }}</td>
-          <td>{{ student.full_name }}</td>
+          <td>
+  {% set name_parts = student.full_name.split(' ') %}
+  {% if name_parts|length > 1 %}
+    {{ name_parts[-1] }}, {{ name_parts[:-1] | join(' ') }}
+  {% else %}
+    {{ student.full_name }}
+  {% endif %}
+</td>
           <td>{{ student.positions | join(', ') }}</td>
           <td>{{ student.qpi }}</td>
           <td>

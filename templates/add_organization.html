@@ -18,6 +18,21 @@
         border-radius: 15px;
     }
 
+    .back-btn {
+        display: inline-block;
+        background-color: #2980b9;
+        color: white;
+        padding: 10px 18px;
+        text-decoration: none;
+        border-radius: 6px;
+        transition: background-color 0.3s;
+        margin-bottom: 20px;
+    }
+
+    .back-btn:hover {
+        background-color: #c0392b;
+    }
+
     h2 {
         text-align: center;
         margin-bottom: 20px;
@@ -25,10 +40,11 @@
 
     input, textarea, select {
         width: 100%;
-        padding: 12px;
-        margin-bottom: 15px;
+        padding: 12px 20px 12px 12px; /* Extra right padding */
+        margin-bottom: 18px;
         border: none;
         border-radius: 6px;
+        box-sizing: border-box;
     }
 
     .submit-btn {
@@ -44,17 +60,10 @@
     .submit-btn:hover {
         background-color: #219150;
     }
-
-    .back-link {
-        display: block;
-        text-align: center;
-        margin-top: 15px;
-        color: white;
-        text-decoration: underline;
-    }
 </style>
 
 <div class="form-container">
+    <a href="{{ url_for('sacdev_dashboard') }}" class="back-btn">← Back to Dashboard</a>
     <h2>➕ Add New Organization</h2>
     <form method="POST" action="{{ url_for('add_organization') }}">
         <input type="text" name="name" placeholder="Organization Name" required>
@@ -69,6 +78,5 @@
         </select>
         <button type="submit" class="submit-btn">Submit</button>
     </form>
-    <a href="{{ url_for('sacdev_dashboard') }}" class="back-link">← Back to Dashboard</a>
 </div>
 {% endblock %}

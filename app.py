@@ -169,14 +169,19 @@ def logout():
 def view_organization(org_id):
     db = get_db()
     c = db.cursor()
+
     conn = sqlite3.connect('database/users.db')
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
 
-    # Add new member manually by entering details
     if request.method == 'POST':
         if 'add_member' in request.form:
-            full_name = request.form['full_name']
+            # ✅ Get separate name fields and student ID
+            student_id = request.form['student_id']
+            first_name = request.form['first_name']
+            last_name = request.form['last_name']
+            full_name = f"{first_name} {last_name}"
+
             position = request.form['position']
             email = request.form['email']
             contact_no = request.form['contact_no']
@@ -186,45 +191,45 @@ def view_organization(org_id):
             year_level = request.form['year_level']
             college = request.form['college']
 
+            # ✅ Store student ID as the member's ID
             c.execute(
                 '''INSERT INTO members (
-                    org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                (org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college)
+                    id, org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                (student_id, org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college)
             )
             conn.commit()
 
-
         elif 'kick_member' in request.form:
             try:
-                # --- Ensure default org exists ---
+                # ✅ Reassign to 'No Organization'
                 c.execute("SELECT * FROM organizations WHERE name = 'No Organization'")
                 default_org = c.fetchone()
                 default_org_id = default_org['id']
-                print(f"Default Org ID: {default_org_id}")
+
                 member_id = request.form['member_id']
                 c.execute('UPDATE members SET org_id = ? WHERE id = ?', (default_org_id, member_id))
                 conn.commit()
-            
+
             except Exception as e:
                 print(f"Error: {e}")
 
         return redirect(url_for('view_organization', org_id=org_id))
 
-    # Fetch organization details
+    # ✅ Fetch organization details
     org = db.execute('SELECT * FROM organizations WHERE id = ?', (org_id,)).fetchone()
 
-    # Fetch members (no join needed)
+    # ✅ Fetch members
     members = db.execute('''
         SELECT position, full_name, sex AS gender, qpi, id
         FROM members
         WHERE org_id = ?
     ''', (org_id,)).fetchall()
 
-    # Optional: documents table
+    # ✅ Fetch documents
     documents = db.execute('SELECT * FROM documents WHERE org_id = ?', (org_id,)).fetchall()
 
-    # Count members
+    # ✅ Count members
     total_members = len(members)
     male_count = sum(1 for m in members if m['gender'] == 'Male')
     female_count = sum(1 for m in members if m['gender'] == 'Female')
@@ -242,6 +247,8 @@ MAJOR_POSITIONS = {'President', 'Vice President', 'Chair', 'Secretary', 'Treasur
 
 @app.route('/students_orgs')
 def students_orgs():
+    search_query = request.args.get('search', '').strip().lower()
+    
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
@@ -280,8 +287,7 @@ def students_orgs():
         students[name]['positions'].append(r['position'])
         students[name]['orgs'].append(r['org_name'])
 
-   
-    # Remove duplicates in orgs/positions (optional)
+    # Compute flags
     for student in students.values():
         major_count = sum(1 for pos in student['positions'] if pos in MAJOR_POSITIONS)
         low_qpi = float(student['qpi']) < 2.0
@@ -296,7 +302,25 @@ def students_orgs():
         student['flag_reasons'] = reasons
         student['flag'] = student['auto_flag'] or student['manually_flagged']
 
-    return render_template('students_orgs.html', students=students.values())
+    # 🔍 Apply search filtering
+    def matches_search(student, query):
+        name_parts = student['full_name'].lower().split()
+        orgs = [org.lower() for org in student['orgs']]
+        return (
+            query in student['full_name'].lower()
+            or any(query in part for part in name_parts)
+            or any(query in org for org in orgs)
+        )
+
+    if search_query:
+        students = {
+            name: s for name, s in students.items()
+            if matches_search(s, search_query)
+        }
+
+
+    return render_template('students_orgs.html', students=students.values(), search_query=search_query)
+
 
 @app.route('/override_flag', methods=['POST'])
 def override_flag():
