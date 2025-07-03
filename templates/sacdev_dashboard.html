@@ -223,6 +223,18 @@
     .cancel-btn:hover {
         background-color: #c0392b !important;
     }
+    .action-buttons-top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 20px 0 10px;
+}
+
+.action-button-bottom {
+    margin-bottom: 20px;
+}
+
+    
 </style>
 
 <!-- Logout button triggers modal -->
@@ -232,10 +244,18 @@
     <div class="dashboard-header">
         <h2>Welcome, {{ user|capitalize }} 👋</h2>
     </div>
-
+<div class="action-buttons-top">
     <a href="{{ url_for('students_orgs') }}" class="btn-view-students">View All Students & Their Organizations</a>
     <a href="{{ url_for('organization_list') }}" class="btn-view-students">View All Organizations</a>
+    <a href="{{ url_for('changelog') }}" class="btn-view-students">🔄 View Changelog</a>
+</div>
+
+<div class="action-button-bottom">
     <a href="{{ url_for('add_organization_form') }}" class="add-org-btn">➕ Add New Organization</a>
+</div>
+
+
+</a>
 
     <h3 class="section-title">Registered Organizations</h3>
 

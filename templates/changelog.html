@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Changelog</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f0f4f8;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+
+    .header {
+      background-color: #1e3a8a;
+      padding: 20px;
+      color: #fff;
+      text-align: center;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 30px auto;
+      background-color: #ffffff;
+      padding: 25px 30px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+      border-radius: 12px;
+    }
+
+    .back-button {
+      display: inline-block;
+      margin-bottom: 20px;
+      padding: 10px 18px;
+      background-color: #2980b9;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      transition: background-color 0.3s ease;
+    }
+
+    .back-button:hover {
+      background-color: #c0392b;
+    }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    select, input[type="text"] {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    .search-button {
+      padding: 10px 20px;
+      background-color: #27ae60;
+      color: white;
+      border: none;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .search-button:hover {
+      background-color: #1e9e50;
+    }
+
+    .clear-button {
+      background-color: #dc2626;
+    }
+
+    .clear-button:hover {
+      background-color: #b91c1c;
+    }
+
+    .revert-button {
+      background-color: #f97316;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .revert-button:hover {
+      background-color: #ea580c;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #e0e0e0;
+      text-align: left;
+    }
+
+    th {
+      background-color: #3b82f6;
+      color: white;
+      font-weight: 600;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+
+    pre {
+      background-color: #f2f2f2;
+      padding: 8px;
+      border-radius: 4px;
+      max-height: 150px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+      gap: 10px;
+    }
+
+    .pagination a {
+      text-decoration: none;
+      background-color: #3b82f6;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+
+    .pagination a:hover {
+      background-color: #2563eb;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 15px;
+      color: #aaa;
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="header">
+  <h1>Changelog</h1>
+</div>
+
+<div class="container">
+  <a href="{{ url_for('sacdev_dashboard') }}" class="back-button">← Back to Dashboard</a>
+
+  <!-- Filter and Buttons Row -->
+  <div class="filter-row">
+    <form method="GET" action="{{ url_for('changelog') }}" style="flex-grow: 1;">
+      <label>Table:
+        <select name="table">
+          <option value="">All</option>
+          <option value="members" {% if request.args.get('table') == 'members' %}selected{% endif %}>Members</option>
+          <option value="organizations" {% if request.args.get('table') == 'organizations' %}selected{% endif %}>Organizations</option>
+        </select>
+      </label>
+
+      <label>Action:
+        <select name="action">
+          <option value="">All</option>
+          <option value="ADD" {% if request.args.get('action') == 'ADD' %}selected{% endif %}>ADD</option>
+          <option value="UPDATE" {% if request.args.get('action') == 'UPDATE' %}selected{% endif %}>UPDATE</option>
+          <option value="DELETE" {% if request.args.get('action') == 'DELETE' %}selected{% endif %}>DELETE</option>
+          <option value="REVERT" {% if request.args.get('action') == 'REVERT' %}selected{% endif %}>REVERT</option>
+        </select>
+      </label>
+
+      <label>User:
+        <input type="text" name="user" value="{{ request.args.get('user', '') }}">
+      </label>
+
+      <label>Sort:
+        <select name="sort">
+          <option value="timestamp_desc" {% if request.args.get('sort') == 'timestamp_desc' %}selected{% endif %}>Newest First</option>
+          <option value="timestamp_asc" {% if request.args.get('sort') == 'timestamp_asc' %}selected{% endif %}>Oldest First</option>
+        </select>
+      </label>
+
+      <input type="hidden" name="page" value="1">
+
+      <div class="button-group">
+        <button type="submit" class="search-button">🔍 Apply</button>
+        {% if session.role == 'sacdev' %}
+        </form> <!-- close GET form before starting POST -->
+        <form method="POST" action="{{ url_for('clear_changelog') }}" onsubmit="return confirmClear();">
+          <input type="hidden" name="table" value="{{ request.args.get('table', '') }}">
+          <input type="hidden" name="action" value="{{ request.args.get('action', '') }}">
+          <input type="hidden" name="user" value="{{ request.args.get('user', '') }}">
+          <button type="submit" class="search-button clear-button">🗑️ Clear</button>
+        </form>
+        {% else %}
+        </form> <!-- close GET form if not sacdev -->
+        {% endif %}
+      </div>
+  </div>
+
+  {% if logs %}
+  <table>
+    <thead>
+      <tr>
+        <th>Timestamp</th>
+        <th>User</th>
+        <th>Action</th>
+        <th>Table</th>
+        <th>Record ID</th>
+        <th>Changes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td>{{ log.timestamp }}</td>
+        <td>{{ log.changed_by }}</td>
+        <td>{{ log.action }}</td>
+        <td>{{ log.table_name }}</td>
+        <td>{{ log.record_id }}</td>
+        <td>
+          {% set msg = log.changes.message %}
+          {% if msg %}
+            {% if msg.startswith('Reverted:') %}
+              <strong style="color:red">(Reverted)</strong> {{ msg[9:] }}
+            {% else %}
+              {{ msg }}
+            {% endif %}
+            {% if session.role == 'sacdev' %}
+              <form method="POST" action="{{ url_for('revert_change', log_id=log.id) }}" style="display:inline;" onsubmit="return confirm('Revert this change?');">
+                <button type="submit" class="revert-button" title="Undo this change">🔄 Revert</button>
+              </form>
+            {% endif %}
+          {% else %}
+            <pre>{{ log.changes }}</pre>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Pagination -->
+  <div class="pagination">
+    {% if has_prev %}
+    <a href="{{ url_for('changelog', page=prev_page, **request.args.to_dict(flat=True)) }}">← Previous</a>
+    {% endif %}
+    {% if has_next %}
+    <a href="{{ url_for('changelog', page=next_page, **request.args.to_dict(flat=True)) }}">Next →</a>
+    {% endif %}
+  </div>
+
+  {% else %}
+  <p>No changelog data available.</p>
+  {% endif %}
+</div>
+
+<div class="footer">
+  &copy; {{ year | default('2025') }} SACDEV Management System
+</div>
+
+<script>
+  function confirmClear() {
+    return confirm("⚠️ Are you sure you want to delete ALL matching changelog entries?");
+  }
+</script>
+
+</body>
+</html>
