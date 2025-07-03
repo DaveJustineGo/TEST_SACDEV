@@ -261,20 +261,23 @@ def sacdev_dashboard():
     c = conn.cursor()
 
     # Delete organization
+    delete_confirmed = request.args.get('delete_confirmed')
+    org_id = request.args.get('org_id')
     if request.method == 'POST' and 'delete_org' in request.form:
         org_id = request.form['org_id']
-
+        # Instead of deleting immediately, redirect to confirmation page
+        return redirect(url_for('confirm_delete_org', org_id=org_id))
+    elif delete_confirmed and org_id:
+        org_id = int(org_id)
         # Fetch organization data before deleting
         c.execute('SELECT * FROM organizations WHERE id = ?', (org_id,))
         org_data = c.fetchone()
-
         # Ensure "No Organization" exists
         c.execute("SELECT id FROM organizations WHERE name = 'No Organization'")
         no_org = c.fetchone()
         no_org_id = no_org['id'] if no_org else None
-
         if no_org_id:
-    # Only reassign members who belong ONLY to this org
+            # Only reassign members who belong ONLY to this org
             c.execute('''
              UPDATE members
             SET org_id = ?, position = 'Student'
@@ -282,12 +285,9 @@ def sacdev_dashboard():
             SELECT student_id FROM members WHERE org_id != ?
         )
     ''', (no_org_id, org_id, org_id))
-
-
         # Delete the organization
         c.execute('DELETE FROM organizations WHERE id = ?', (org_id,))
         conn.commit()
-
         # Log the change
         log_change(
             'DELETE',
@@ -297,6 +297,7 @@ def sacdev_dashboard():
             session.get('username', 'unknown'),
             conn
         )
+        flash("Organization deleted.", "success")
 
     # Ensure default org exists
     c.execute("SELECT * FROM organizations WHERE name = 'No Organization'")
@@ -762,6 +763,23 @@ def organization_list():
     orgs = c.fetchall()
 
     return render_template('organization_list.html', orgs=orgs, search_query=search_query)
+
+@app.route('/confirm_delete_org/<int:org_id>', methods=['GET', 'POST'])
+def confirm_delete_org(org_id):
+    if session.get('role') != 'sacdev':
+        return redirect('/login')
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT * FROM organizations WHERE id = ?', (org_id,))
+    org = c.fetchone()
+    if not org:
+        flash("Organization not found.", "error")
+        return redirect(url_for('sacdev_dashboard'))
+    if request.method == 'POST':
+        # User confirmed deletion
+        # Set a hidden field to trigger deletion in dashboard POST
+        return redirect(url_for('sacdev_dashboard', delete_confirmed=1, org_id=org_id))
+    return render_template('confirm_delete_org.html', org=org)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
