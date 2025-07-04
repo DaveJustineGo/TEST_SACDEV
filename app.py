@@ -264,9 +264,34 @@ def sacdev_dashboard():
     delete_confirmed = request.args.get('delete_confirmed')
     org_id = request.args.get('org_id')
     if request.method == 'POST' and 'delete_org' in request.form:
-        org_id = request.form['org_id']
-        # Instead of deleting immediately, redirect to confirmation page
-        return redirect(url_for('confirm_delete_org', org_id=org_id))
+        org_id = int(request.form['org_id'])
+    # Fetch organization data before deleting
+        c.execute('SELECT * FROM organizations WHERE id = ?', (org_id,))
+        org_data = c.fetchone()
+    # Ensure "No Organization" exists
+        c.execute("SELECT id FROM organizations WHERE name = 'No Organization'")
+        no_org = c.fetchone()
+        no_org_id = no_org['id'] if no_org else None
+        if no_org_id:
+            c.execute('''
+         UPDATE members
+        SET org_id = ?, position = 'Student'
+        WHERE org_id = ? AND student_id NOT IN (
+            SELECT student_id FROM members WHERE org_id != ?
+        )
+        ''', (no_org_id, org_id, org_id))
+        c.execute('DELETE FROM organizations WHERE id = ?', (org_id,))
+        conn.commit()
+        log_change(
+            'DELETE',
+            'organizations',
+            org_id,
+            dict(org_data) if org_data else {},
+            session.get('username', 'unknown'),
+            conn
+    )
+        flash("Organization deleted.", "success")
+
     elif delete_confirmed and org_id:
         org_id = int(org_id)
         # Fetch organization data before deleting
@@ -409,107 +434,171 @@ def view_organization(org_id):
     c = conn.cursor()
 
     if request.method == 'POST':
+        # --- ADD MEMBER ---
         if 'add_member' in request.form:
-            student_id = request.form['student_id']
-            first_name = request.form['first_name']
-            last_name = request.form['last_name']
+            student_id = request.form['student_id'].strip()
+            first_name = request.form['first_name'].strip().title()
+            last_name = request.form['last_name'].strip().title()
             full_name = f"{first_name} {last_name}"
 
-            position = request.form['position']
-            email = request.form['email']
-            contact_no = request.form['contact_no']
-            sex = request.form['sex']
-            qpi = request.form['qpi']
-            course = request.form['course']
-            year_level = request.form['year_level']
-            college = request.form['college']
+            position = request.form['position'].strip().title()
+            email = request.form['email'].strip().lower()
+            contact_no = request.form['contact_no'].strip()
+            sex = request.form['sex'].strip().capitalize()
+            qpi = request.form['qpi'].strip()
+            course = request.form['course'].strip().title()
+            year_level = request.form['year_level'].strip().title()
+            college = request.form['college'].strip().title()
 
-            # Check if member already exists in this organization
-            c.execute(
-                'SELECT * FROM members WHERE student_id = ? AND org_id = ?',
-                (student_id, org_id)
-            )
+            # Check if student already exists in this org
+            c.execute('SELECT * FROM members WHERE student_id = ? AND org_id = ?', (student_id, org_id))
             if c.fetchone():
-                flash(f"⚠️ Student {full_name} already exists in this organization!", "error")
-            else:
-                c.execute('''
-                    INSERT INTO members (student_id, org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (student_id, org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college))
-                conn.commit()
+                return redirect(url_for('view_organization', org_id=org_id, message=f"⚠️ Student {full_name} already exists in this organization!"))
 
-                try:
+            # Check if student exists in 'No Organization'
+            c.execute("SELECT id FROM organizations WHERE name = 'No Organization'")
+            no_org = c.fetchone()
+            no_org_id = no_org['id'] if no_org else None
+
+            if no_org_id:
+                c.execute('SELECT * FROM members WHERE student_id = ? AND org_id = ?', (student_id, no_org_id))
+                existing = c.fetchone()
+
+                if existing:
+                    existing_data = {
+                        'full_name': existing['full_name'].strip().title(),
+                        'email': (existing['email'] or '').strip().lower(),
+                        'contact_no': (existing['contact_no'] or '').strip(),
+                        'sex': (existing['sex'] or '').strip().capitalize(),
+                        'qpi': str(existing['qpi']).strip(),
+                        'course': (existing['course'] or '').strip().title(),
+                        'year_level': (existing['year_level'] or '').strip().title(),
+                        'college': (existing['college'] or '').strip().title()
+                    }
+
+                    input_data = {
+                        'full_name': full_name,
+                        'email': email,
+                        'contact_no': contact_no,
+                        'sex': sex,
+                        'qpi': qpi,
+                        'course': course,
+                        'year_level': year_level,
+                        'college': college
+                    }
+
+                    mismatches = [
+                        field.replace('_', ' ').title()
+                        for field in input_data
+                        if input_data[field] != existing_data[field]
+                    ]
+
+                    if mismatches:
+                        message_html = "⚠️ Info mismatch with 'No Organization' record:<ul style='margin-top:10px;'>"
+                        for field in mismatches:
+                            message_html += f"<li>{field}</li>"
+                        message_html += "</ul>"
+                        return redirect(url_for('view_organization', org_id=org_id, message=message_html))
+
+                    # No mismatches — move member to this org
+                    c.execute('''
+                        UPDATE members
+                        SET org_id = ?, position = ?
+                        WHERE id = ?
+                    ''', (org_id, position, existing['id']))
+                    conn.commit()
+
                     log_change(
-                        'ADD',
+                        'UPDATE',
                         'members',
-                        student_id,
+                        existing['id'],
                         {
-                            'message': f"Added member {full_name} to organization ID {org_id}",
-                            'details': {
-                                'org_id': org_id,
-                                'full_name': full_name,
-                                'position': position,
-                                'email': email,
-                                'contact_no': contact_no,
-                                'sex': sex,
-                                'qpi': qpi,
-                                'course': course,
-                                'year_level': year_level,
-                                'college': college
-                            }
+                            'message': f"Moved member {full_name} from No Organization to org ID {org_id}",
+                            'details': {'new_position': position}
                         },
                         session.get('username', 'unknown'),
                         conn
                     )
-                except Exception as log_err:
-                    print(f"Error in log_change (add_member): {log_err}")
 
+                    return redirect(url_for('view_organization', org_id=org_id, message=f"✅ Moved {full_name} to new organization."))
+
+            # If not in No Organization, add as new member
+            c.execute('''
+                INSERT INTO members (student_id, org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (student_id, org_id, full_name, position, email, contact_no, sex, qpi, course, year_level, college))
+            conn.commit()
+
+            log_change(
+                'ADD',
+                'members',
+                student_id,
+                {
+                    'message': f"Added member {full_name} to organization ID {org_id}",
+                    'details': {
+                        'org_id': org_id,
+                        'full_name': full_name,
+                        'position': position,
+                        'email': email,
+                        'contact_no': contact_no,
+                        'sex': sex,
+                        'qpi': qpi,
+                        'course': course,
+                        'year_level': year_level,
+                        'college': college
+                    }
+                },
+                session.get('username', 'unknown'),
+                conn
+            )
+
+            return redirect(url_for('view_organization', org_id=org_id, message=f"✅ Added {full_name} to organization."))
+
+        # --- KICK MEMBER ---
         elif 'kick_member' in request.form:
             try:
-                # Get No Organization ID
                 c.execute("SELECT id FROM organizations WHERE name = 'No Organization'")
                 no_org = c.fetchone()
                 no_org_id = no_org['id'] if no_org else None
 
                 if not no_org_id:
-                    flash("⚠️ 'No Organization' not found in database.", "error")
-                    return redirect(url_for('view_organization', org_id=org_id))
+                    return redirect(url_for('view_organization', org_id=org_id, message="⚠️ 'No Organization' not found in database."))
 
                 member_id = request.form['member_id']
-
-                # Fetch member's record
                 c.execute("SELECT * FROM members WHERE id = ?", (member_id,))
                 member_data = c.fetchone()
 
                 if not member_data:
-                    flash("⚠️ Member not found.", "error")
-                    return redirect(url_for('view_organization', org_id=org_id))
+                    return redirect(url_for('view_organization', org_id=org_id, message="⚠️ Member not found."))
 
                 student_id = member_data['student_id']
                 previous_org_id = member_data['org_id']
 
-                # Count other organizations (excluding this org and No Organization)
                 c.execute('''
-                SELECT COUNT(*) AS other_orgs
-                FROM members
-                WHERE student_id = ? AND org_id NOT IN (?, ?)
+                    SELECT COUNT(*) AS other_orgs
+                    FROM members
+                    WHERE student_id = ? AND org_id NOT IN (?, ?)
                 ''', (student_id, org_id, no_org_id))
                 org_row = c.fetchone()
                 org_count = org_row['other_orgs'] if org_row and 'other_orgs' in org_row.keys() else 0
 
-
                 if org_count == 0:
-                    # Reassign to No Organization if no other orgs
-                    c.execute('''
-                        UPDATE members
-                        SET org_id = ?, position = 'Student'
-                        WHERE id = ?
-                    ''', (no_org_id, member_id))
-                    log_message = f"Kicked member {member_data['full_name']} from org {previous_org_id} → No Organization"
+                    c.execute('SELECT * FROM members WHERE student_id = ? AND org_id = ?', (student_id, no_org_id))
+                    no_org_duplicate = c.fetchone()
+
+                    if no_org_duplicate:
+                        c.execute('DELETE FROM members WHERE id = ?', (member_id,))
+                        log_message = f"Kicked {member_data['full_name']} from org {previous_org_id} (already in No Org)"
+                    else:
+                        c.execute('''
+                            UPDATE members
+                            SET org_id = ?, position = 'Student'
+                            WHERE id = ?
+                        ''', (no_org_id, member_id))
+                        log_message = f"Kicked {member_data['full_name']} from org {previous_org_id} → No Organization"
                 else:
-                    # Remove this member record if they have other orgs
                     c.execute('DELETE FROM members WHERE id = ?', (member_id,))
-                    log_message = f"Removed member {member_data['full_name']} from org {previous_org_id} (still in other orgs)"
+                    log_message = f"Removed {member_data['full_name']} from org {previous_org_id} (still in other orgs)"
 
                 conn.commit()
 
@@ -529,11 +618,11 @@ def view_organization(org_id):
                     conn
                 )
 
+                return redirect(url_for('view_organization', org_id=org_id, message=f"✅ {log_message}"))
+
             except Exception as e:
                 print(f"Error during kick_member: {e}")
-                flash("⚠️ Failed to kick member due to internal error.", "error")
-
-        return redirect(url_for('view_organization', org_id=org_id))
+                return redirect(url_for('view_organization', org_id=org_id, message="⚠️ Failed to kick member due to internal error."))
 
     # Always fetch organization and related data
     org = c.execute('SELECT * FROM organizations WHERE id = ?', (org_id,)).fetchone()
@@ -561,6 +650,7 @@ def view_organization(org_id):
     )
 
 
+
 # --- STUDENTS ORGS ---
 MAJOR_POSITIONS = {'President', 'Vice President', 'Chair', 'Secretary', 'Treasurer'}
 
@@ -584,6 +674,7 @@ def students_orgs():
         if name not in students:
             students[name] = {
                 'id': r['id'],
+                'student_id': r['student_id'],  # ADD this line
                 'full_name': name,
                 'qpi': r['qpi'],
                 'positions': [],

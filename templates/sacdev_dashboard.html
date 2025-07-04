@@ -174,7 +174,7 @@
         background-color: #c0392b;
     }
 
-    /* Logout Modal Styles */
+    /* Modals */
     .modal {
         display: none;
         position: fixed;
@@ -223,18 +223,17 @@
     .cancel-btn:hover {
         background-color: #c0392b !important;
     }
+
     .action-buttons-top {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin: 20px 0 10px;
-}
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 20px 0 10px;
+    }
 
-.action-button-bottom {
-    margin-bottom: 20px;
-}
-
-    
+    .action-button-bottom {
+        margin-bottom: 20px;
+    }
 </style>
 
 <!-- Logout button triggers modal -->
@@ -244,18 +243,16 @@
     <div class="dashboard-header">
         <h2>Welcome, {{ user|capitalize }} 👋</h2>
     </div>
-<div class="action-buttons-top">
-    <a href="{{ url_for('students_orgs') }}" class="btn-view-students">View All Students & Their Organizations</a>
-    <a href="{{ url_for('organization_list') }}" class="btn-view-students">View All Organizations</a>
-    <a href="{{ url_for('changelog') }}" class="btn-view-students">🔄 View Changelog</a>
-</div>
 
-<div class="action-button-bottom">
-    <a href="{{ url_for('add_organization_form') }}" class="add-org-btn">➕ Add New Organization</a>
-</div>
+    <div class="action-buttons-top">
+        <a href="{{ url_for('students_orgs') }}" class="btn-view-students">View All Students & Their Organizations</a>
+        <a href="{{ url_for('organization_list') }}" class="btn-view-students">View All Organizations</a>
+        <a href="{{ url_for('changelog') }}" class="btn-view-students">🔄 View Changelog</a>
+    </div>
 
-
-</a>
+    <div class="action-button-bottom">
+        <a href="{{ url_for('add_organization_form') }}" class="add-org-btn">➕ Add New Organization</a>
+    </div>
 
     <h3 class="section-title">Registered Organizations</h3>
 
@@ -275,15 +272,12 @@
 
     {% for org in orgs %}
     <div class="org-card">
-        <h4>{{ org[1] }}</h4>
-        <p>{{ org[2] }}</p>
+        <h4>{{ org['name'] }}</h4>
+        <p>{{ org['description'] }}</p>
         <p>Members: {{ org['member_count'] }}</p>
-        <span class="status {{ org[5]|lower }}">{{ org[5] }}</span>
-        <a href="{{ url_for('view_organization', org_id=org[0]) }}" class="view-btn">View</a>
-        <form method="POST" style="display:inline;">
-            <input type="hidden" name="org_id" value="{{ org[0] }}">
-            <button type="submit" name="delete_org" class="delete-btn">Delete</button>
-        </form>
+        <span class="status {{ org['status']|lower }}">{{ org['status'] }}</span>
+        <a href="{{ url_for('view_organization', org_id=org['id']) }}" class="view-btn">View</a>
+        <button class="delete-btn" data-org-id="{{ org['id'] }}" onclick="openDeleteModal(this)">Delete</button>
     </div>
     {% else %}
     <p>No organizations registered yet.</p>
@@ -302,6 +296,19 @@
     </div>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <h2>Confirm Delete</h2>
+        <p>Are you sure you want to delete this organization?</p>
+        <form id="deleteForm" method="POST" action="{{ url_for('sacdev_dashboard') }}">
+            <input type="hidden" name="org_id" id="deleteOrgId">
+            <button type="submit" name="delete_org">Yes, Delete</button>
+        </form>
+        <button class="cancel-btn" onclick="closeDeleteModal()">Cancel</button>
+    </div>
+</div>
+
 <script>
 function openLogoutModal() {
     document.getElementById('logoutModal').style.display = 'block';
@@ -309,11 +316,27 @@ function openLogoutModal() {
 function closeLogoutModal() {
     document.getElementById('logoutModal').style.display = 'none';
 }
+
+function openDeleteModal(buttonElement) {
+    const orgId = buttonElement.getAttribute('data-org-id');
+    document.getElementById('deleteOrgId').value = orgId;
+    document.getElementById('deleteModal').style.display = 'block';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+}
+
 window.onclick = function(event) {
-    var modal = document.getElementById('logoutModal');
-    if (event.target == modal) {
-        modal.style.display = "none";
+    const logoutModal = document.getElementById('logoutModal');
+    const deleteModal = document.getElementById('deleteModal');
+    if (event.target === logoutModal) {
+        logoutModal.style.display = "none";
+    }
+    if (event.target === deleteModal) {
+        deleteModal.style.display = "none";
     }
 }
 </script>
+
 {% endblock %}

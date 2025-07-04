@@ -190,6 +190,52 @@
 .modal-cancel:hover {
   background-color: #5a6268;
 }
+/* Message Modal Styling — consistent with delete org modal */
+#messageModal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+#messageModal .modal-content {
+    background: linear-gradient(to right, #2c3e50, #3498db);
+    color: white;
+    margin: 15% auto;
+    padding: 20px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+}
+
+#messageModal .modal-content p {
+    margin-bottom: 20px;
+    font-size: 16px;
+}
+
+#messageModal .modal-content button {
+    background-color: #2980b9;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    margin: 10px 0;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    width: 100%;
+}
+
+#messageModal .modal-content button:hover {
+    background-color: #1f6396;
+}
 
 
 </style>
@@ -198,6 +244,15 @@
 
 <h2>{{ org.name }}</h2>
 <p>{{ org.description }}</p>
+<div id="messageModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeMessageModal()">&times;</span>
+    <p id="messageContent"></p>
+    <button onclick="closeMessageModal()" class="submit-btn" style="width: 100%; margin-top: 12px;">OK</button>
+  </div>
+</div>
+
+
 
 <h3>Mission</h3>
 <p>{{ org.mission }}</p>
@@ -323,6 +378,24 @@
     if (event.target === memberModal) memberModal.style.display = "none";
     if (event.target === kickModal) kickModal.style.display = "none";
   };
+
+  function showMessageModal(message) {
+  document.getElementById("messageContent").innerHTML = message;
+  document.getElementById("messageModal").style.display = "block";
+}
+
+function closeMessageModal() {
+  document.getElementById("messageModal").style.display = "none";
+}
+
+window.onload = function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const message = urlParams.get('message');
+  if (message) {
+    showMessageModal(decodeURIComponent(message));
+  }
+};
+
 </script>
 
 {% endblock %}
